@@ -1,0 +1,28 @@
+clear;
+
+pullsign(ex) :=
+  (ex: postrans(ex),
+   if member(sign(ex), '[neg, nz])
+   then [-1, -ex]
+   else [1, ex])$
+
+postrans(ex):=
+  block([inflag:true,pull],
+    if mapatom(ex) then ex
+    elseif op(ex)="*" then
+       (pull:maplist(pullsign,ex),
+        apply("*",map('first,pull))*apply("*",map('second,pull)))
+    elseif op(ex)="^" then
+       (pull:pullsign(part(ex,1)),
+        pull[1]^part(ex,2)*pull[2]^part(ex,2))
+    else map(postrans,ex))$
+
+prederror : false;
+
+load(pdiff);
+tex_uses_prime_for_derivatives : true;
+
+load(format);
+load("scifac");
+load("stringproc");
+set_tex_environment_default ("§#S#", "§");
