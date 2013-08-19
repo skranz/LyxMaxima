@@ -1,9 +1,17 @@
 Package: LyxMaxima
 Type: Package
-Title: What the package does (short line)
-Version: 1.0
-Date: 2013-08-16
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
-License: What license is it under?
+Title: An R based GUI to use Maxima as computer algebra system for Lyx
+Version: 0.01
+Date: 2013-08-19
+Author: Sebastian Kranz 
+Maintainer: Sebastian Kranz <sebastian.kranz@uni-ulm.de>
+Description: An R based GUI to use Maxima as computer algebra system for Lyx.
+             Only tested for windows. Maxima must be installed seperately and 
+             be available in PATH.
+License: GPL >= 2.0
+Depends:
+  restorepoint,
+  stringtools,
+  RMaxima,
+  gWidgets,
+  gWidgetstcltk

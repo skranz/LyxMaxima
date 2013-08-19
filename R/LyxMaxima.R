@@ -1,54 +1,31 @@
-#' A small interface for Computer Algebra within Lyx
-#' The programm typically works as follows:
-#' 1. reads mathematical formulas in Latex format that are in the clipboard
-#' 2. translates them into Maxima formulas
-#' 3. some Maxima code is added, like simplification and code that makes Maxima write the results into a file (that is because socket connection or fifo pipes, seem not to work correctly on my Windows computer)
-#' 4. this code is piped to Maxima and executed
-#' 5. the results of maxima are read and converted into suitable latex code
-#' 6. the results are written into the clipboard
-#' 7. the user can paste them back into Lyx
+#' A small GUI for Computer Algebra within Lyx
 
-#' Variables can have 3 main representations:
-#' 1. Latex original : y, u_{1}(x_{L}), \alpha_{1}, \alpha_{\beta}^{2}(\gamma,x,\delta)
-#' 2. Latex canonical: y, u_{1L}      , \alpha_{1}, \alpha_{\beta2\gamma x\delta}
-#' 3. Maxima         : y, u_1L        , alpha_1   , alpha_beta2gammaxdelta
-
-#' The user has to specify a canonical form for every variable that appears and is not
-#' in canonical form in the section #DEFINE
-#' We can assign several Latex original versions to one Latex canonical
-#' Eg. u_{1}^{L} and u_{1}(x_{L}) can both have form u_{1L}
-#' But every Latex original must have a unique canonical
-#' The program creates a one-to-one mapping between Latex canonical and Maxima 
-
-.onAttach = function(...)  {
-  init.LyxMaxima()
-  cat("\nrun start.LyxMaxima()") 
-  #start.LyxMaxima(init=FALSE)
-}
-
-.LyxMaxima.Env = new.env(parent=.GlobalEnv) 
-
-#' Function when check.equality button has been pressed
+#' Checks whether a latex equality holds true
+#' @export
 check.equality = function(txt) {
   restore.point("check.equality")
-  #rerestore.point("check.equality")
   
   txt = merge.lines(txt)
   lr = str.split(txt,"=")[[1]][1:2]
   lr = convert.math(lr)
-  
-  com = paste('is(equal(',lr[1],",",lr[2],'))',sep="")
-  #com = c(paste('is(equal(gcfac(factor(',lr[1],"-(",lr[2],')),0))'),com)
-  
-  com = c("prederror : false;",
-          paste('printf(stream,"~a",', com ,');',sep=""))
-  ret = call.maxima(com)
-  out = read.maxima.out(ret$out.file)
+
+  out = mx.is.equal(lr[1],lr[2])
   return(out)
 }
 
-add.solve = function(str,var="", make.lyx.file = TRUE,lyma=new.lyma()) {
-  restore.point("add.solve")
+examples.check.equality = function() {
+  set.storing(TRUE)
+  check.equality("x_{1}+x_{1}=2x_{1}")
+  check.equality("x_{1}+x_{1}=x_{1}")
+  
+}
+
+#' Lyx code to maxima solve code
+#' 
+#' @param str a Latex math expression
+#' @param var a Maxima variable name
+ly.mao.solve = function(str,ma.var=lyma$ma.var,lyma=new.lyma()) {
+  restore.point("ly.mao.solve")
   
   str = str.replace(str,"$","")
   row.eq = has.substr(str,"=")
@@ -56,47 +33,56 @@ add.solve = function(str,var="", make.lyx.file = TRUE,lyma=new.lyma()) {
   
   num.eq = NROW(str)
   str = convert.math(str,lyma=lyma)
-  
+
+  var = ma.var
   # Find variables as left hand side of equations (need to change later)
   if (nchar(var)==0) { 
-    var = str.substr(str,1,eq.pos-1)
+    var = substring(str,1,eq.pos-1)
     eq.pos = str.find(str,"=",first=TRUE,simplify=TRUE)
   } else {
     var = sep.lines(var,",")
   }
-  
+
   # Example: solve([x^2+y=10*z, x-y=3*z], [x,y]);
   out.eq = paste(str,collapse=",\n")
   out.var = paste(var,collapse=",")
   
   out = paste("sol:solve([",out.eq,"],[",out.var,"]);",sep="")
-  add(out)
-  add.simplify(term=paste("sol[1]",sep=""),lyma = lyma)
+  c(out,
+    ma.mao.simplify(term=paste("sol[1]",sep=""),lyma = lyma))
+}
+examples.ly.mao.solve = function() {
+  ly.mao.solve("x_{1}+y=5","x_1")
 }
 
 
-add.diff = function(str,var="",lyma=new.lyma()) {
-  restore.point("add.diff")
-  
-  #stopifnot(!make.lyx.file)
-  
+#' diff: lyx to mao code
+#'
+#' @param str a Latex math expression
+#' @param ma.var a Maxima variable name
+ly.mao.diff = function(str,ma.var=lyma$ma.var,lyma=new.lyma()) {
+  restore.point("ly.mao.diff")
+    
   str = str.replace(str,"$","")
   str = convert.math(str,lyma=lyma)
   
-  var = sep.lines(var,",")
+  
+  var = sep.lines(ma.var,",")
   
   # Example: solve([x^2+y=10*z, x-y=3*z], [x,y]);
   out.term = paste(str,collapse=",\n")
   
   out = paste("sol:diff(",out.term[1],",",var[1],");",sep="")
-  add(out)
-  add.simplify(term=paste("sol",sep=""),lyma=lyma)
+  c(out,
+    ma.mao.simplify(term=paste("sol",sep=""),lyma = lyma))
+}
+examples.ly.mao.diff = function() {
+  ly.mao.diff("x_{1}^2+5","x_1")
 }
 
-# Check the sign of an expression
-add.sign = function(str,lyma=new.lyma()) {
-  restore.point("add.sign")  
-  #stopifnot(!make.lyx.file)
+#' Maxima code for checking sign of a lyx math expression
+ly.mao.sign = function(str,lyma=new.lyma()) {
+  restore.point("ly.mao.sign")  
   
   str = str.replace(str,"$","")
   str = convert.math(str,lyma=lyma)
@@ -106,44 +92,48 @@ add.sign = function(str,lyma=new.lyma()) {
   sep = "\n newline(stream); \n"
   txt = paste(txt,collapse=sep)
   txt = c(txt,"\n newline(stream); \n")
-  
-  add(txt)
+
+  return(txt)
+}
+examples.ly.mao.sign = function() {
+  ly.mao.sign("x_{1}^2+1")
 }
 
-add.code = function(str, code.file = paste(getwd(),'/maxima_code.mac',sep="") ) {
-  restore.point("add.code")
+#' Convert maxima code in maxima code generation code
+ma.mao.code = function(str, code.file = paste(tempdir(),'/maxima_code.mac',sep="") ) {
+  restore.point("ma.mao.code")
   
   str = merge.lines(str,";")
   str = str.trim(sep.lines(str,";"))
-  
   str = str[str!=""]
-  
-  
+  # As a backup to see the code later
   write.text(paste(str,";"),code.file)
   
   # Loop through every line of code
-  if (length(str)==0)	return();
+  if (length(str)==0)	return("");
   
-  
-  for (i in 1:NROW(str)) {
-    code = str[i]
-    
+  max.code = NULL
+  code.li = lapply(str, function(code) {    
     assign.pos = str.find(code,":",simplify=TRUE)
     if (!has.substr(code,":")) {
-      add.comment(code)
-      add.tex(code)
+      return(c(mao.comment(code),ly.mao.tex(code)))
     } else {
       # An assigmnet like x: 5*t^2
-      add(paste(code,";",sep=""))
-      add.comment(code)
       left = str.split(code,":",first=TRUE)[1]
-      add.tex(left)
+      return(c(
+        paste(code,";",sep=""),
+        mao.comment(code),
+        ly.mao.tex(left)
+      ))
     }
-  }
+  })
+  do.call("c",code.li)
 }
 
-add.simplify = function(term,lyma=lyma) {
-  restore.point("add.simplify")
+
+#' Takes maxima code and transforms it into a simplification command
+ma.mao.simplify = function(term,lyma=new.lyma()) {
+  restore.point("ma.mao.simplify")
   txt =str.replace(lyma$simp.pat,"[TERM]",term)	
   if (txt=="") {
     txt = term
@@ -152,49 +142,37 @@ add.simplify = function(term,lyma=lyma) {
   sep = "\n newline(stream); \n"
   txt = paste(txt,collapse=sep)
   txt = c(txt,"\n newline(stream); \n")
-  
-  add(txt)
-  
-  #sep.lines(txt)
-  #sep.lines(txt.out)
+
+  return(txt)
 }
 
-add.comment=function(txt, layout="Standard") {
+examples.ma.mao.simplify = function() {
+  ma.mao.simplify("x1+x1+x1")
+}
+
+mao.comment=function(txt, layout="Standard") {
   sep = "\n newline(stream); \n"
   txt = paste('printf(stream,"~a","', txt,'");' , collapse=sep)
   
   layout.txt = paste('printf(stream,"~a","', '##Layout:', layout,'");', sep="")
-  txt.out <<-c(txt.out,layout.txt,sep,txt,sep)
-  
+  c(layout.txt,sep,txt,sep)
 }
 
-add.tex=function(txt) {
+ly.mao.tex=function(txt) {
   sep = "\n newline(stream); \n"
   txt = paste("\n printf(stream,",'"~a", tex(',txt,",false));",sep="")
   txt = paste(txt,collapse=sep)
-  txt.out <<-c(txt.out,txt,sep)
+  c(txt,sep)
 }
 
-add = function(txt,sep="") {
-  txt.out<<-c(txt.out,txt)
-}
-
-single.sign = function(txt=lyma$txt,lyma=new.lyma(txt)) {
-  restore.point("single.sign")
-  #rerestore.point("single.sign")
+#' Determines the sign of a lyx expression
+lyx.sign = function(txt=lyma$txt,lyma=new.lyma(txt)) {
+  restore.point("lyx.sign")
   
   kill.all()
-  txt.out <<-NULL
-  label.out <<-NULL
   
-  add.lyma.code(lyma)
-  
-  txt = merge.lines(txt)
-  txt = do.subst(txt,lyma)
-  
-  add.sign(txt,lyma=lyma)
-  ret.max = call.maxima(txt.out,lyma=lyma)
-  
+  ly.mao.sign(txt,lyma=lyma)
+  ret.max = send.to.maxima(txt.out,lyma=lyma)
   ret = read.maxima.out(ret.max$out.file)[1]
   sign.names = list(pnz="sign unknown",pn="not 0",pz="positive or zero",pos="strictly positive",neg="strictly negative",nz="negative or zero")
   if (ret %in% names(sign.names))
@@ -205,101 +183,57 @@ single.sign = function(txt=lyma$txt,lyma=new.lyma(txt)) {
 
 
 
-single.diff = function(txt=lyma$txt,lyma=new.lyma(txt)) {
-  restore.point("single.diff")
-  #rerestore.point("single.diff")
-  
+#' Differentiates a lyx expression
+lyx.diff = function(txt=lyma$txt,ma.var=lyma$ma.var,lyma=new.lyma(txt)) {
+  restore.point("lyx.diff")  
   kill.all()
-  
-  txt.out <<-NULL
-  label.out <<-NULL
-  
-  txt = merge.lines(txt)
-  txt = do.subst(txt,lyma)
-  
-  #txt = convert.math(txt,lyma=lyma)
-  #add.tex(txt)
-  
-  pat = lyma$simp.pat
-  pat = convert.patterns(pat)
-  
-  add.diff(txt,var=lyma$var,lyma=lyma)
-  
-  ret.max = call.maxima(txt.out,lyma=lyma)
-  ret = convert.maxima.output(ret.max$out.file)
-  txt = ret$txt[ret$math.rows]
-  return(txt)
+  mao.code = ly.mao.diff(txt,ma.var=ma.var,lyma=lyma)
+  eval.mao.to.ly(mao.code,lyma=lyma)
 }
 
-single.solve = function(txt=lyma$txt,lyma=new.lyma(txt)) {
-  restore.point("single.simplify")
-  #rerestore.point("single.simplify")
-  
-  kill.all()
-  
-  txt.out <<-NULL
-  label.out <<-NULL
-  
-  txt = merge.lines(txt)
-  txt = do.subst(txt,lyma)
-  
-  #txt = convert.math(txt,lyma=lyma)
-  #add.tex(txt)
-  
-  pat = lyma$simp.pat
-  pat = convert.patterns(pat)
-  
-  add.solve(txt,var=lyma$var,lyma=lyma,make.lyx.file=FALSE)
-  
-  ret.max = call.maxima(txt.out,lyma=lyma)
-  ret = convert.maxima.output(ret.max$out.file)
-  txt = ret$txt[ret$math.rows]
-  return(txt)
+examples.lyx.diff = function() {
+  txt = "x^2"
+  lyx.diff("x^2","x")
 }
 
-single.simplify = function(txt=lyma$txt,lyma=new.lyma(txt)) {
-  restore.point("single.simplify")
-  #rerestore.point("single.simplify")
+#' Solves a lyx equation
+lyx.solve = function(txt=lyma$txt,ma.var = lyma$ma.var,lyma=new.lyma(txt)) {
+  restore.point("lyx.solve")  
+  kill.all()
+  mao.code = ly.mao.solve(txt,ma.var=ma.var,lyma=lyma)
+  eval.mao.to.ly(mao.code,lyma=lyma)
+}
+
+examples.lyx.solve = function() {
+  lyx.solve("x^2+1+y=0","x")
+}
+
+#' Simplifies a lyx expression
+lyx.simplify = function(txt=lyma$txt,lyma=new.lyma(txt)) {
+  restore.point("lyx.simplify")
+  #rerestore.point("lyx.simplify")
   
   kill.all()
-  
-  txt.out <<-NULL
-  label.out <<-NULL
-  
-  
-  #var = find.all.var(txt)$var
-  #var = convert.math(var,lyma=lyma)
-  #simp.var = var
-  #simp.pattern=read.text("maxima_pattern.txt")
-  txt = merge.lines(txt)
-  txt = do.subst(txt,lyma)
-  
   txt = convert.math(txt,lyma=lyma)
-  #add.tex(txt)
-  
-  add.simplify(txt,lyma=lyma)
-  
-  ret.max = call.maxima(txt.out,lyma=lyma)
-  ret = convert.maxima.output(ret.max$out.file)
-  txt = ret$txt[ret$math.rows]
-  
-  txt = txt[1]
-  return(txt)
+  mao.code = ma.mao.simplify(txt,lyma=lyma)
+  eval.mao.to.ly(mao.code,lyma=lyma)[1]
+}
+examples.lyx.simplify = function() {
+  lyx.simplify("x^2+2*x+1")
 }
 
-read.lyx.math = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
+#' txt is some Lyx-Latex code copied from view Latex source
+#' 
+#' The code can contain some commands starting with #
+lyx.go = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
   restore.point("read.lyx.math")
   #rerestore.point("read.lyx.math")
-  
-  txt.out <<-NULL
-  label.out <<-NULL
   
   if (!is.null(file)) {
     txt = read.text(file,merge=FALSE)
   }
   txt = str.trim(txt)
-  
-  
+    
   # REMOVE TRASH LINES
   txt = merge.lines(txt)
   txt = str.replace(txt,'\\end{','\n\\end{')
@@ -333,10 +267,8 @@ read.lyx.math = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
   
   # No commands found: simplify the math
   if (length(crows)==0) {
-    return(single.simplify(txt,lyma));
+    return(lyx.simplify(txt,lyma));
   }
-  
-  
   
   crows.slash = which(str.left(txt,2)=="\\#")
   txt[crows.slash] = str.remove.ends(txt[crows.slash],1,0)
@@ -355,7 +287,7 @@ read.lyx.math = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
     # Only keep only the part after command in first row
     space.pos = str.find(str," ",first=TRUE,simplify=TRUE)
     if (length(space.pos)>0) {
-      str[1] = str.substr(str[1],space.pos+1,nchar(str[1]))
+      str[1] = substring(str[1],space.pos+1,nchar(str[1]))
       if (is.na(str[1])) 
         str[1]=""
     } else {
@@ -416,24 +348,17 @@ read.lyx.math = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
       lyma.to.gui(lyma)
     } 		 		
     else if (str.left(com[com.i],7)=="#MAXIMA") {
-      #str = txt[rows]
       lyma.to.gui(lyma)
-      old.str = str
-      str = convert.code(str,lyma)
-      add.code(str)
-      call.maxima.and.lyx(txt.out,lyma=lyma)
+      return(matex.to.ma.code(str))
     }	else if (str.left(com[com.i],2)=="#R") {
       #str = txt[rows]
       lyma.to.gui(lyma)
-      str = convert.code(str,lyma)
-      return(sep.lines(str))
+      return(matex.to.ma.code(str))
     }	else {
       mywarning(paste("Unknown command", com[com.i], ". Commands must be in CAPITAL letters"))
     }
     com.i=com.i+1
   }
-  
-  #write.text(txt.out,"outtest.txt")
   return(NULL)
 }
 

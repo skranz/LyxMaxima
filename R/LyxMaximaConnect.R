@@ -1,16 +1,24 @@
 #' Returns enviornment with global variables
-get.LyxMax = function() {
-  glob()
+LyxMaximaxGlobals = function() {
+  glob
 }
 
 set.glob = function(...) {
   args = list(...)
-  copy.into.env(dest=glob(),source=args)
-}
-glob = function() {
-  .LyxMaxima.Env
+  copy.into.env(dest=glob,source=args)
 }
 
+
+.onLoad = function(...)  {
+  assign("glob", new.env(), envir=parent.env(environment()))
+  library(restorepoint)
+  set.storing(FALSE)
+#  init.LyxMaxima()
+  #cat("\nrun start.LyxMaxima()") 
+}
+
+if (!exists("glob"))
+  glob = new.env() 
 
 
 init.LyxMaxima = function(...) {
@@ -52,14 +60,14 @@ set.LyxMaxima.paths = function(
   LYX.HEADER = paste(LYXCAS.PATH,"maxima_lyx_header.txt",sep=""),
   LYX.FOOTER = paste(LYXCAS.PATH,"maxima_lyx_footer.txt",sep="")
 ) {
-  copy.into.env(source=nlist(LYXCAS.PATH,LYX.PATH,OUT.PATH,LYX.EXE,LYX.OUTFILE.NAME,MAXIMA.HEADER,LYX.HEADER,LYX.FOOTER),dest=glob())
+  copy.into.env(source=nlist(LYXCAS.PATH,LYX.PATH,OUT.PATH,LYX.EXE,LYX.OUTFILE.NAME,MAXIMA.HEADER,LYX.HEADER,LYX.FOOTER),dest=glob)
 }
 
 
 #' Writes a maxima header for LyxMaxima
 write.maxima.header = function() {
   #open(max.pipe)  
-  header = read.text(glob()$MAXIMA.HEADER,merge = FALSE)
+  header = read.text(glob$MAXIMA.HEADER,merge = FALSE)
   header = c(header,
              'set_tex_environment_default ("?#S#", "?");'
              #'set_tex_environment_default ("\n $", "$");'
@@ -73,7 +81,7 @@ kill.all = function() {
   #write.maxima.header()
 }
 
-
+#' Initializes Maxima Pipe and starts LyxMaxima GUI
 start.LyxMaxima = function(..., init=TRUE) {
   start.maxima(...)
   if (init)
@@ -82,11 +90,15 @@ start.LyxMaxima = function(..., init=TRUE) {
   draw.window()
 }
 
-send.to.maxima.and.lyx = function(txt,lyma=new.lyma()) {
-  ret = send.to.maxima(txt,lyma)
-  ret = call.lyx()  
+#' Takes mao.code sends it to maxima and converts the results to Lyx format
+eval.mao.to.ly = function(mao.code, lyma=new.lyma()) {
+  send.to.maxima(mao.code,lyma=lyma)
+  ret = convert.maxima.output()
+  txt = ret$txt[ret$math.rows]
+  return(txt)  
 }
 
+#' Sends mao code to maxima
 send.to.maxima = function(txt,lyma=new.lyma()) {  
   restore.point("send.to.maxima.and.lyx")
   if (length(lyma$assum)>0) {
@@ -98,7 +110,8 @@ send.to.maxima = function(txt,lyma=new.lyma()) {
   call.maxima(txt)
 }
 
-call.lyx = function(maxima.outfile= get.mx()$outfile, lyx.outfile.name= glob()$LYX.OUTFILE.NAME) {
+# Generates a new lyx file, code not up to date
+call.lyx = function(maxima.outfile= get.mx()$outfile, lyx.outfile.name= glob$LYX.OUTFILE.NAME) {
   restore.point("call.lyx")
   
   # Read the generated file and adapt the Maxima Tex output, which unfortunately is quite ugly
@@ -131,8 +144,8 @@ call.lyx = function(maxima.outfile= get.mx()$outfile, lyx.outfile.name= glob()$L
   str = paste(header,txt,footer,collapse="\n")
   
   
-  out.path = glob()$OUT.PATH
-  lyx.exe = paste('"',glob()$LYX.EXE,'"',sep="")
+  out.path = glob$OUT.PATH
+  lyx.exe = paste('"',glob$LYX.EXE,'"',sep="")
   
   lyx.file = paste(out.path,"/",lyx.outfile.name,".lyx",sep="")
   write.text(str,lyx.file)

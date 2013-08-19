@@ -2,27 +2,22 @@
 #' A list that contains GUI values
 new.lyma = function(txt=character(0)) {
   EMPTY.MAT = matrix(NA,nrow=0,ncol=2)
-  lyma = list(txt = txt,def = EMPTY.MAT,simp.pat = character(0),simp.pat.org = character(0), subst= EMPTY.MAT,
+  
+  lyma = list(txt = txt,ma.var="",def = EMPTY.MAT,simp.pat = character(0),simp.pat.org = character(0), subst= EMPTY.MAT,
               assum = character(0), fun = character(0), eq = character(0))
-}
-
-add.lyma.code = function(lyma) {
-  add(lyma$code)
+  lyma$simp.pat.org = "gcfac(factor())";
+  lyma$simp.pat = convert.patterns(lyma$simp.pat.org);
+  lyma
 }
 
 button.go.fun = function() {  
-  txt = readClipboard(format = 1, raw = FALSE)
-  
+  txt = readClipboard(format = 1, raw = FALSE)  
   restore.point("button.go.fun")
-  #rerestore.point("button.go.fun")
-  
   svalue(text.term)=txt
-  
   lyma = gui.to.lyma()
   lyma$txt = txt
   write.text(txt,"temp_lyx_math.txt")	
-  ret = read.lyx.math(lyma = lyma)
-  #print(ret)
+  ret = lyx.go(lyma = lyma)
   if (!is.null(ret)) {
     writeClipboard(ret)
     svalue(text.term)=ret
@@ -31,13 +26,9 @@ button.go.fun = function() {
 
 button.equal.fun = function() {
   txt = readClipboard(format = 1, raw = FALSE)
-  restore.point("button.convert.fun")
-  #rerestore.point("button.convert.fun")
-  
   kill.all()
   write.text(txt,"temp_lyx_math.txt")	
   svalue(text.term)=txt
-  #lyma = gui.to.lyma()
   svalue(text.term)=check.equality(txt)
 }
 
@@ -45,10 +36,12 @@ button.equal.fun = function() {
 button.solve.fun = function() {	
   txt = readClipboard(format = 1, raw = FALSE)
   restore.point("button.solve.fun")
-  #rerestore.point("button.solve.fun")
   write.text(txt,"temp_lyx_math.txt")	
   lyma = gui.to.lyma()
-  ret = single.solve(txt,lyma=lyma)
+  Rprof(tmp <- tempfile())
+  ret = lyx.solve(txt,lyma=lyma)
+  Rprof()
+  summaryRprof(tmp)
   writeClipboard(ret)
   svalue(text.term)=ret
 }
@@ -57,11 +50,10 @@ button.solve.fun = function() {
 button.diff.fun = function() {	
   txt = readClipboard(format = 1, raw = FALSE)
   restore.point("button.diff.fun")
-  #rerestore.point("button.diff.fun")
   svalue(text.term)=paste("Differentiate...",paste(txt,collapse="\n"),sep="\n")
   write.text(txt,"temp_lyx_math.txt")	
   lyma = gui.to.lyma()
-  ret = single.diff(txt,lyma=lyma)
+  ret = lyx.diff(txt,lyma=lyma)
   writeClipboard(ret)
   svalue(text.term)=ret
 }
@@ -70,11 +62,10 @@ button.diff.fun = function() {
 button.sign.fun = function() {	
   txt = readClipboard(format = 1, raw = FALSE)
   restore.point("button.diff.fun")
-  #rerestore.point("button.diff.fun")
   svalue(text.term)=paste("Determine sign of...",paste(txt,collapse="\n"),sep="\n")
   write.text(txt,"temp_lyx_math.txt")	
   lyma = gui.to.lyma()
-  ret = single.sign(txt,lyma=lyma)
+  ret = lyx.sign(txt,lyma=lyma)
   svalue(text.term)=ret
 }
 
@@ -82,22 +73,16 @@ button.sign.fun = function() {
 button.clear.fun = function() {	
   txt = readClipboard(format = 1, raw = FALSE)
   restore.point("button.clear.fun")
-  #rerestore.point("button.clear.fun")
   kill.all()
   svalue(text.term)="Maxima has been cleared!"
 }
 
-
-
 button.read.fun = function() {	
   txt = readClipboard(format = 1, raw = FALSE)
   restore.point("button.diff.fun")
-  #rerestore.point("button.diff.fun")
-  lyma = gui.to.lyma()
   ret = convert.maxima.output()
-  
   txt = ret$txt
-  math.rows = ret$math.rows
+  #txt = ret$txt[ret$math.rows]
   writeClipboard(txt)
   svalue(text.term)=txt
 }
@@ -106,8 +91,7 @@ button.revsubst.fun = function() {
   txt = readClipboard(format = 1, raw = FALSE)
   restore.point("button.diff.fun")
   #rerestore.point("button.diff.fun")
-  lyma = gui.to.lyma()
-  
+  lyma = gui.to.lyma()  
   txt = do.reverse.subst(txt,lyma)
   writeClipboard(txt)
   svalue(text.term)=txt
@@ -125,16 +109,13 @@ button.R.fun = function() {
   svalue(text.term)=txt
 }
 
-to.lyx.fun = function(txt) {
+# Transforms a simple R or Maxima expression to Lyx
+ma.to.ly.code = function(txt,lyma=new.lyma()) {
   txt = paste("printf(stream,",'"~a", tex(',txt,',false));',sep="")
   sep = "\n newline(stream); \n"
   txt = paste(txt,collapse=sep)
   txt = c(txt,"\n newline(stream); \n")
-  add(txt)
-  
-  ret.max = send.to.maxima(txt,lyma=lyma)
-  txt = convert.maxima.output(ret.max$out.file, change.over="frac")$txt
-  txt
+  eval.mao.to.ly(txt,lyma)
 }
 
 button.lyx.fun = function() {	
@@ -145,12 +126,10 @@ button.lyx.fun = function() {
   kill.all()
   svalue(text.term)=txt
   lyma = gui.to.lyma()
-  txt = to.lyx.fun(txt)
+  txt = ma.to.ly.code(txt,lyma=lyma)
   writeClipboard(txt)
   svalue(text.term)=txt
 }
-
-
 
 
 draw.window = function() {
@@ -237,7 +216,7 @@ draw.window = function() {
     lyma$fun = sep.lines(lyma$fun,"\n");
     lyma$fun = merge.lines(lyma$fun,";");
     lyma$fun = sep.lines(lyma$fun,";");
-    lyma$var = svalue(text.var.main);		
+    lyma$ma.var = svalue(text.var.main);		
     return(lyma);
   }
   
@@ -251,6 +230,11 @@ draw.window = function() {
   }
   
   visible(win) <- TRUE
+  
+  # Place window always on top
+  tcl("wm", "attributes", getToolkitWidget(win), topmost = 1)
+  
   #focus <- win
 }
 #draw.window()
+

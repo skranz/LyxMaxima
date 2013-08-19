@@ -1,12 +1,11 @@
 
 #' Convert maxima 'tex' output to Latex expression readable by Lyx
-convert.maxima.output = function(out.file= MAXIMA.OUTFILE,change.over = c("def","frac","inv","")) {  
+convert.maxima.output = function(change.over = c("def","frac","inv","")) {  
   restore.point("convert.maxima.output")
   
-  # Read the generated file and adapt the Maxima Tex output, which unfortunately is quite ugly
-  
-  # Perhaps we have to make sure here that Maxima has finished its operation... let's hope it works
-  txt = read.maxima.out(out.file)
+  # Read the generated file get.mx()$outfile and adapt the Maxima Tex output, which unfortunately is quite ugly
+  # get.mx()$outfile
+  txt = read.maxima.out()
   
   txt = merge.lines(txt,"\n")
   txt = sep.lines(txt,"?")
@@ -36,7 +35,6 @@ convert.maxima.output = function(out.file= MAXIMA.OUTFILE,change.over = c("def",
 
 maxima.tex.to.lyx = function(txt,change.over=c("def","frac","inv","")) {
   restore.point("maxima.tex.to.lyx")
-  #rerestore.point("maxima.tex.to.lyx")
   
   txt = str.replace(txt,"\\left[","")
   txt = str.replace(txt,"\\right]","")
@@ -63,60 +61,19 @@ maxima.tex.to.lyx = function(txt,change.over=c("def","frac","inv","")) {
   change.over = change.over[1]
   if (change.over != "") {
     # Transform {{x}\over{a+b}} into frac{x}{a+b}
-    while (TRUE) {
-      over.pos = str.find(str,"\\over")
-      if (length(over.pos)==0) {
-        break;
-      }
-      
-      ret = make_simple_block_info(str=str,"{","}")[[1]]
-      curley.pos = cbind(ret$startpos,ret$endpos)
-      ret = combine.pos.list.and(list(curley.pos,over.pos,curley.pos))
-      pos = ret$pos;  ind = ret$ind
-      depth = get.pos.depth(pos)
-      pos = pos[depth==0,,drop=FALSE];ind = ind[depth==0,,drop=FALSE];
-      if (length(pos)==0) {
-        stop("\\over found but not two adjacent curleys!")
-      }
-      curley.str =  str.at.pos(str,curley.pos)
-      
-      # Want to estimate the length of a fraction
-      # If to long write as inv
-      
-      #restore.point("convert.maxima.output_1")
-      #rerestore.point("convert.maxima.output_1")
-      #stop()
-      
-      if (change.over == "def") {
-        length.str = c(curley.str[ind[,3]],curley.str[ind[,1]])
-        length.str = str.replace(length.str,'\\\\frac{','',fixed = TRUE)					
-        length.str = str.replace(length.str,'_','',fixed = TRUE)					
-        length.str = str.replace(length.str,'^','',fixed = TRUE)					
-        length.str = str.replace(length.str,'\\\\[a-zA-Z0-9]*','?',fixed = FALSE)		
-        
-        str.len = matrix(nchar(length.str),ncol=2,byrow=FALSE)
-        # Maximum of numerator and denominator characters
-        str.len = pmax(str.len[,1],str.len[,2])
-        max.len  = 150
-        as.inv = str.len > max.len
-      } else if (change.over == "frac") {
-        as.inv = rep(FALSE,NROW(pos))
-      } else {
-        as.inv = rep(FALSE,NROW(pos))
-      }
-      
-      
-      # Add adjacent { } around the over term
-      pos[,1] = pos[,1]-1
-      pos[,2] = pos[,2]+1
-      
-      new.str = rep("", NROW(pos))
-      
-      new.str[!as.inv] = paste("\\frac",curley.str[ind[!as.inv,1]],curley.str[ind[!as.inv,3]],sep="")
-      curley.str = str.remove.ends(curley.str,1,1)
-      new.str[as.inv] = paste("(",curley.str[ind[as.inv,3]],")^{-1} (",curley.str[ind[as.inv,1]],")",sep="")
-      
-      str = str.replace.at.pos(str,pos,new.str)	
+    if (change.over == "frac") {
+      str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","\\frac{_SUB1_}{_SUB2_}",
+                                block.start = "{", block.end = "}")
+    } else if (change.over == "inv") {
+      str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","(SUB_1)*(SUB_2)^{-1}",
+                                  block.start = "{", block.end = "}")      
+    
+    # Replacement depends on length
+    } else if (change.over == "def") {
+      str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","\\frac{_SUB1_}{_SUB2_}",
+                                  block.start = "{", block.end = "}", only.replace.smaller.than=100)
+      str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","(SUB_1)*(SUB_2)^{-1}",
+                                  block.start = "{", block.end = "}")            
     }
   }
   
@@ -128,7 +85,7 @@ maxima.tex.to.lyx = function(txt,change.over=c("def","frac","inv","")) {
   
   
   # Greeks that had a subscript have no \ . Fix that
-  txt = str.replace(txt,greek.or,'\\\\\\1',fixed=FALSE)	
+  txt = str.replace(txt,glob$greek.or,'\\\\\\1',fixed=FALSE)	
   #txt = str.replace.list(txt,greek,paste("\\",greek," ",sep=""))
   txt = str.replace(txt,"\\\\","\\")
   txt = str.replace(txt," _","_")
@@ -182,25 +139,6 @@ find.all.var = function(txt,form=c("latex.normal","maxima")) {
 }
 
 
-convert.code = function(str,lyma=new.lyma()) {
-  restore.point("convert.code")
-  #rerestore.point("convert.code")
-  
-  str = merge.lines(str,"\n")
-  ret = make_simple_block_info(str=str,"$","$")[[1]]
-  math.pos = cbind(ret$startpos,ret$endpos)
-  math.txt = str.at.pos(str,math.pos)
-  if (length(math.txt)>0) {
-    math.txt = convert.math(math.txt,lyma=lyma)
-    str = str.replace.at.pos(str,math.pos,math.txt)
-  }
-  str = sep.lines(str,"\n")
-  
-  comment.rows = (str.left(str,3)=="\\#'" | str.left(str,2)=="#'")
-  str[comment.rows] = paste("/*",str.remove.ends(str[comment.rows],2,0),"*/")
-  str
-}
-
 
 
 convert.var = function(var,lyma=new.lyma()) {
@@ -215,7 +153,6 @@ convert.var = function(var,lyma=new.lyma()) {
   var
   
 }
-
 
 eq.to.leftright.mat = function(str,colnames=NULL) {
   restore.point("eq.to.leftright.mat")
@@ -239,7 +176,7 @@ eq.to.leftright.mat = function(str,colnames=NULL) {
   str = str.replace(str,"$","")  		
   
   center = str.find(str,"=",first=TRUE,simplify=TRUE)
-  mat = cbind(str.trim(str.substr(str,1,center-1)),str.trim(str.substr(str,center+1,nchar(str))))
+  mat = cbind(str.trim(substring(str,1,center-1)),str.trim(substring(str,center+1,nchar(str))))
   if (!is.null(colnames))
     colnames(mat)=colnames
   return(mat)	
@@ -304,17 +241,7 @@ convert.patterns = function(str) {
   str = sep.lines(str)
   str = merge.lines(str,collapse=";")
   str = str.replace(str,"%;",";")
-  
-  # #Replace mathematical expressions to Maxima format
-  # ret = make_simple_block_info(str,"$","$")[[1]]
-  # mat.pos = cbind(ret$startpos,ret$endpos)
-  # if (length(mat.pos)>0) {
-  # lat.mat = str.at.pos(str,mat.pos)
-  # max.mat = convert.math(lat.mat)
-  # str = str.replace.at.pos(str,mat.pos,max.mat)
-  # }
-  #str = str.replace(str,"$","")
-  
+    
   # A pattern in each row (or some junk rows)
   str = str.tokenize(str,";")
   str = str[str!="{}"]
@@ -343,13 +270,15 @@ convert.patterns = function(str) {
   str = str.replace(str,"{]}","]")
   
   # Add postrans
-  str[str!=""] = paste("postrans(\\",str[str!=""],")",sep="")
+  #str[str!=""] = paste("postrans(\\",str[str!=""],")",sep="")
+  
   str[str==""] = "[TERM]"	
   
   return(str)
 }
 
 
+#' Perform the substitutions specified in lyma on ly code
 do.subst = function(str,lyma) {
   restore.point("do.subst")
   mat = lyma$subst
@@ -358,6 +287,7 @@ do.subst = function(str,lyma) {
   }
   str
 }
+
 # Reverses the substitution of variable names in tex Code
 # used to adapt the result of Maxima to original LYX formulas
 do.reverse.subst = function(txt,lyma) {
@@ -369,13 +299,16 @@ do.reverse.subst = function(txt,lyma) {
 
 
 # Return
-convert.math = function(str,final.curley=c("round","remove","keep"),lyma=new.lyma()) {
+convert.math = function(str,final.curley=c("round","remove","keep"),lyma=new.lyma(),do.subst=TRUE) {
   
   restore.point("convert.math")
-  #rerestore.point("convert.math")
   res = list()
   # Mege all lines together to one string
   str = str.trim(merge.lines(str))
+  
+  if (do.subst) {
+    do.subst(str,lyma)
+  }
   
   if (str=="") {
     warning("convert.math called with empty string")
@@ -424,8 +357,8 @@ convert.math = function(str,final.curley=c("round","remove","keep"),lyma=new.lym
   
   
   #Remove \ from greek letters
-  greek = glob()$greek
-  greek.or = glob()$greek.or
+  greek = glob$greek
+  greek.or = glob$greek.or
   
   str.test = str.replace.list(str,paste("\\",greek,sep=""),paste(greek," ",sep=""))
   
@@ -488,16 +421,70 @@ convert.math = function(str,final.curley=c("round","remove","keep"),lyma=new.lym
     str = str.replace(str,pat,'\\1((',fixed=FALSE)
   }
   # Remove some excessive braces
-  var.pat = "([0-9a-zA-Z_]*)"
-  for (i in 1:4) {
-    str = str.replace(str,paste0("([\\(\\+-\\*/\\^])\\(",var.pat,"\\)([\\)\\+-\\*/\\^$])"),'\\1\\2\\3',fixed=FALSE)
-    str = str.replace(str,paste0("\\(\\(","([0-9a-zA-Z_\\+-\\*/\\^ ]*)","\\)\\)"),
-                                '(\\1)',fixed=FALSE)    
-  }
-  str = str.replace(str,paste0("^\\(",var.pat,"\\)"),'\\1',fixed=FALSE)
-  str = str.replace(str,paste0("\\(",var.pat,"\\)$"),'\\1',fixed=FALSE)
+  str = remove.redundant.maxima.braces(str) 
+  
   
   # Separate lines again
   str = sep.lines(str)
   str	
+}
+
+
+examples.convert.math =function() {
+  convert.math("x+x+x")
+  convert.math("a(x_{sub}+x^i)")
+  convert.math("\\frac{x}{x^2}")
+  convert.math("5+\\frac{x^2+x^2}{1+\\frac{2}{x*5}}*2")
+}
+
+#' Removes many redundant braces in a string str that contains a maxima mathematical expression
+remove.redundant.maxima.braces = function(str) {
+  var.pat = "([0-9a-zA-Z_]*)"
+  for (i in 1:4) {
+    str = str.replace(str,paste0("([\\(\\+-\\*/\\^])\\(",var.pat,"\\)([\\)\\+-\\*/\\^$])"),'\\1\\2\\3',fixed=FALSE)
+    str = str.replace(str,paste0("\\(\\(","([0-9a-zA-Z_\\+-\\*/\\^ ]*)","\\)\\)"),
+                      '(\\1)',fixed=FALSE)    
+  }
+  str = str.replace(str,paste0("^\\(",var.pat,"\\)"),'\\1',fixed=FALSE)
+  str = str.replace(str,paste0("\\(",var.pat,"\\)$"),'\\1',fixed=FALSE)
+  
+  # Remove some more unneccary braces
+  braces = str.blocks.pos(str,"(",")")
+  #show.blocks(braces,str)
+  double.brace = (diff(braces$outer[,1]) == 1) & (diff(braces$outer[,2]) == -1)
+  remove.brace.pos = as.numeric(braces$outer[double.brace,])
+  str = str.replace.at.pos(str,remove.brace.pos,rep("",length(remove.brace.pos)))
+  
+  return(str)
+}
+
+#' Converts matex code (maxima code mixed with Latex in $ tags) to maxima code
+matex.to.ma.code = function(str,lyma=new.lyma()) {
+  restore.point("matex.to.ma.code")
+  #rerestore.point("lyx.to.maxima.code")
+  
+  str = merge.lines(str,"\n")
+  
+  blocks = str.blocks.pos(str,"$","$")
+  math.txt = str.at.pos(str,blocks$inner)
+  if (length(math.txt)>0) {
+    math.txt = convert.math(math.txt,lyma=lyma)
+    str = str.replace.at.pos(str,blocks$outer,math.txt)
+  }
+  str = sep.lines(str,"\n")
+  
+  # Instead of $ write §
+  str = str.replace(str,"§","$")
+  comment.rows = (str.left(str,3)=="\\#'" | str.left(str,2)=="#'")
+  str[comment.rows] = paste("/*",str.remove.ends(str[comment.rows],2,0),"*/")
+  str
+}
+
+example.matex.to.ma.code =function() {
+  str = "
+solve($x^{2}$+1=0,x)§
+solve($x^{2}$+1+y=0,x);
+diff($x_{1}^2$,x);
+  "
+  matex.to.ma.code(str)
 }
