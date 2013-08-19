@@ -2,22 +2,22 @@
 
 #' Checks whether a latex equality holds true
 #' @export
-check.equality = function(txt) {
+lyx.is.equal = function(txt, lyma) {
   restore.point("check.equality")
   
   txt = merge.lines(txt)
   lr = str.split(txt,"=")[[1]][1:2]
-  lr = convert.math(lr)
+  lr = convert.math(lr,lyma=lyma)
 
   out = mx.is.equal(lr[1],lr[2])
   return(out)
 }
 
-examples.check.equality = function() {
-  set.storing(TRUE)
-  check.equality("x_{1}+x_{1}=2x_{1}")
-  check.equality("x_{1}+x_{1}=x_{1}")
-  
+examples.lyx.is.equal = function() {
+  lyx.is.equal("x_{1}+x_{1}=2x_{1}")
+  lyx.is.equal("x_{1}+x_{1}=x_{1}")
+  #lyma = new.lyma()
+  #lyx.is.equal("-\frac{\bar{\sigma}-\beta\sigma_{b}}{\beta-1}=\frac{\bar{\sigma}-\beta\sigma_{b}}{1-\beta}")
 }
 
 #' Lyx code to maxima solve code
@@ -166,6 +166,7 @@ ly.mao.tex=function(txt) {
 }
 
 #' Determines the sign of a lyx expression
+#' @export
 lyx.sign = function(txt=lyma$txt,lyma=new.lyma(txt)) {
   restore.point("lyx.sign")
   
@@ -184,6 +185,7 @@ lyx.sign = function(txt=lyma$txt,lyma=new.lyma(txt)) {
 
 
 #' Differentiates a lyx expression
+#' @export
 lyx.diff = function(txt=lyma$txt,ma.var=lyma$ma.var,lyma=new.lyma(txt)) {
   restore.point("lyx.diff")  
   kill.all()
@@ -222,9 +224,25 @@ examples.lyx.simplify = function() {
   lyx.simplify("x^2+2*x+1")
 }
 
+lyx.add.subst = function(str,lyma=new.lyma()) {
+  restore.point("lyx.add.subst")
+  str = str[str!=""]
+  mat = eq.to.leftright.mat(str)
+  if (length(lyma$subst)>0) {
+    # Overwrite existing definitions with same name
+    lyma$subst = lyma$subst[! lyma$subst[,1] %in% mat[,1],, drop=FALSE]
+    lyma$subst = rbind(mat,lyma$subst)
+  } else {
+    lyma$subst = mat
+  }
+  lyma.to.gui(lyma)
+  lyma  
+}
+
 #' txt is some Lyx-Latex code copied from view Latex source
 #' 
 #' The code can contain some commands starting with #
+#' @export
 lyx.go = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
   restore.point("read.lyx.math")
   #rerestore.point("read.lyx.math")
@@ -279,6 +297,8 @@ lyx.go = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
   
   com.i = 1
   count.subst = 0
+
+  ret.txt = ""
   while(com.i <= NROW(com)){
     rows = com.start[com.i]:com.end[com.i]		
     
@@ -315,42 +335,43 @@ lyx.go = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
     }
     
     str.backup = str
-    if (str.left(com[com.i],6)=="#SUBST") {
-      #browser()
-      mat = eq.to.leftright.mat(str)
-      if (length(mat)>0) {
-        txt <- str.replace.list(txt,mat[,2],mat[,1])
-      }
-      if (count.subst>0) {
-        lyma$subst = rbind(lyma$subst,mat)
-      } else {
-        lyma$subst = mat
-      }
-      count.subst = count.subst+1
-      lyma.to.gui(lyma)
+    if (str.starts.with(com[com.i],"#SUBST")) {
+      lyma=lyx.add.subst(str,lyma)
+      ret.txt = paste(ret.txt,paste0("\n#SUBST\n",
+      paste0(lyma$subst[,1],"=",lyma$subst[,2],collapse="\n")))
     }	
-    else if (str.left(com[com.i],13)=="#SIMP.PATTERN") {
+    else if (str.starts.with(com[com.i],"#SIMP.PATTERN")) {
       #stop()
       simp.patterns <- convert.patterns(str)
       lyma$simp.pat <- simp.patterns
       lyma.to.gui(lyma)
+      ret.txt = paste(ret.txt,paste0("\n#SIMP.PATTERN\n",
+        paste0(lyma$sim.pat,collapse="\n")))
+      
     }
-    else if (str.left(com[com.i],7)=="#ASSUME") {
+    else if (str.starts.with(com[com.i],"#ASSUME")) {
       #stop()
       lyma$assum <- convert.assumptions(str)
       lyma.to.gui(lyma)
+      ret.txt = paste(ret.txt,paste0("\n#ASSUME\n",paste0(lyma$assume,collapse="\n")))
     }
-    else if (str.left(com[com.i],4)=="#FUN") {
+    else if (str.starts.with(com[com.i],"#FUN")) {
       #stop()
       str = str[str!=""]
       str = convert.math(str,final.curley = "remove",lyma=lyma)
       lyma$fun <- str
       lyma.to.gui(lyma)
+      ret.txt = paste(ret.txt,paste0("\n#FUN\n",paste0(lyma$fun,collapse="\n")))
     } 		 		
-    else if (str.left(com[com.i],7)=="#MAXIMA") {
+    else if (str.starts.with(com[com.i],"#MAXIMA")) {
       lyma.to.gui(lyma)
-      return(matex.to.ma.code(str))
-    }	else if (str.left(com[com.i],2)=="#R") {
+      str = sep.lines(str, ";")
+      str.replace(str,";","")
+      str = merge.lines(str,";")
+      ma.code = matex.to.ma.code(str) 
+      return(ma.code)
+    }
+    else if (str.starts.with(com[com.i],"#R")) {
       #str = txt[rows]
       lyma.to.gui(lyma)
       return(matex.to.ma.code(str))
@@ -359,6 +380,6 @@ lyx.go = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
     }
     com.i=com.i+1
   }
-  return(NULL)
+  return(ret.txt)
 }
 

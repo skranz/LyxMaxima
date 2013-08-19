@@ -11,10 +11,9 @@ set.glob = function(...) {
 
 .onLoad = function(...)  {
   assign("glob", new.env(), envir=parent.env(environment()))
-  library(restorepoint)
-  set.storing(FALSE)
-#  init.LyxMaxima()
-  #cat("\nrun start.LyxMaxima()") 
+  assign("restore.point", function(...){}, envir=parent.env(environment()))
+
+  cat("\ncall: go()") 
 }
 
 if (!exists("glob"))
@@ -67,7 +66,40 @@ set.LyxMaxima.paths = function(
 #' Writes a maxima header for LyxMaxima
 write.maxima.header = function() {
   #open(max.pipe)  
-  header = read.text(glob$MAXIMA.HEADER,merge = FALSE)
+  #header = read.text(glob$MAXIMA.HEADER,merge = FALSE)
+  header = paste0("
+clear;
+
+pullsign(ex) :=
+  (ex: postrans(ex),
+  if member(sign(ex), '[neg, nz])
+  then [-1, -ex]
+  else [1, ex])$
+  
+  postrans(ex):=
+  block([inflag:true,pull],
+",'
+  if mapatom(ex) then ex
+  elseif op(ex)="*" then
+  (pull:maplist(pullsign,ex),
+  apply("*",map(',",'first,pull))*apply(",'"*",map(',"'second,pull)))",'
+  elseif op(ex)="^" then
+  (pull:pullsign(part(ex,1)),
+  pull[1]^part(ex,2)*pull[2]^part(ex,2))
+  else map(postrans,ex))$
+  
+  prederror : false;
+  
+  load(pdiff);
+  tex_uses_prime_for_derivatives : true;
+  
+  load(format);
+  load("scifac");
+  load("stringproc");
+  set_tex_environment_default ("§#S#", "§");
+')
+
+  
   header = c(header,
              'set_tex_environment_default ("?#S#", "?");'
              #'set_tex_environment_default ("\n $", "$");'
@@ -82,7 +114,7 @@ kill.all = function() {
 }
 
 #' Initializes Maxima Pipe and starts LyxMaxima GUI
-start.LyxMaxima = function(..., init=TRUE) {
+go = start.LyxMaxima = function(..., init=TRUE) {
   start.maxima(...)
   if (init)
     init.LyxMaxima(...)

@@ -10,7 +10,6 @@ Description: An R based GUI to use Maxima as computer algebra system for Lyx.
              be available in PATH.
 License: GPL >= 2.0
 Depends:
-  restorepoint,
   stringtools,
   RMaxima,
   gWidgets,

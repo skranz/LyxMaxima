@@ -175,7 +175,7 @@ eq.to.leftright.mat = function(str,colnames=NULL) {
   # Remove some math trash
   str = str.replace(str,"$","")  		
   
-  center = str.find(str,"=",first=TRUE,simplify=TRUE)
+  center = str.find(str,"=",first=TRUE,simplify=TRUE)[,1]
   mat = cbind(str.trim(substring(str,1,center-1)),str.trim(substring(str,center+1,nchar(str))))
   if (!is.null(colnames))
     colnames(mat)=colnames
@@ -270,7 +270,7 @@ convert.patterns = function(str) {
   str = str.replace(str,"{]}","]")
   
   # Add postrans
-  #str[str!=""] = paste("postrans(\\",str[str!=""],")",sep="")
+  #str[str!=""] = paste("postrans(",str[str!=""],")",sep="")
   
   str[str==""] = "[TERM]"	
   
@@ -303,11 +303,11 @@ convert.math = function(str,final.curley=c("round","remove","keep"),lyma=new.lym
   
   restore.point("convert.math")
   res = list()
-  # Mege all lines together to one string
+  # Merge all lines together to one string
   str = str.trim(merge.lines(str))
   
   if (do.subst) {
-    do.subst(str,lyma)
+    str = do.subst(str,lyma)
   }
   
   if (str=="") {
