@@ -450,11 +450,12 @@ remove.redundant.maxima.braces = function(str) {
   
   # Remove some more unneccary braces
   braces = str.blocks.pos(str,"(",")")
-  #show.blocks(braces,str)
-  double.brace = c((diff(braces$outer[,1]) == 1) & (diff(braces$outer[,2]) == -1),FALSE)
-  remove.brace.pos = as.numeric(braces$outer[double.brace,])
-  str = str.replace.at.pos(str,remove.brace.pos,rep("",length(remove.brace.pos)))
-  
+  if (NROW(braces$outer)>0) {
+    #show.blocks(braces,str)
+    double.brace = c((diff(braces$outer[,1]) == 1) & (diff(braces$outer[,2]) == -1),FALSE)
+    remove.brace.pos = as.numeric(braces$outer[double.brace,])
+    str = str.replace.at.pos(str,remove.brace.pos,rep("",length(remove.brace.pos)))
+  }  
   return(str)
 }
 examples.remove.redundant.maxima.braces = function() {

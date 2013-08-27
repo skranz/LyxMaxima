@@ -241,7 +241,7 @@ draw.window = function() {
     lyma$fun = sep.lines(lyma$fun,";");
     lyma$ma.var = svalue(text.var.main);
     
-    lyma$win.size = size(win)
+    #lyma$win.size = size(win)
     return(lyma);
   }
   
