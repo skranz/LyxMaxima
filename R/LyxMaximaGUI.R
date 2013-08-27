@@ -27,9 +27,10 @@ button.equal.fun = function() {
   txt = readClipboard(format = 1, raw = FALSE)
   kill.all()
   write.text(txt,"temp_lyx_math.txt")	
+  svalue(text.term)="Check equality..."
   svalue(text.term)=txt
   lyma = gui.to.lyma()
-  svalue(text.term)=lyx.is.equal(txt,lyma=lyma)
+  svalue(text.term)=paste0(lyx.is.equal(txt,lyma=lyma)," ", round(runif(1,0,1000)))
 }
 
 
@@ -117,8 +118,11 @@ button.save.fun  = function() {
 }
 
 load.lyma = function(file="lyma.R") {
+  
   source(file,local=TRUE)
   lyma.to.gui(lyma)
+  #if (!is.null(lyma$win.size))
+  #  size(win)<- lyma$win.size
 }
 
 # Transforms a simple R or Maxima expression to Lyx
@@ -235,7 +239,9 @@ draw.window = function() {
     lyma$fun = sep.lines(lyma$fun,"\n");
     lyma$fun = merge.lines(lyma$fun,";");
     lyma$fun = sep.lines(lyma$fun,";");
-    lyma$ma.var = svalue(text.var.main);		
+    lyma$ma.var = svalue(text.var.main);
+    
+    lyma$win.size = size(win)
     return(lyma);
   }
   

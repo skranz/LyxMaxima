@@ -7,9 +7,10 @@ lyx.is.equal = function(txt, lyma) {
   
   txt = merge.lines(txt)
   lr = str.split(txt,"=")[[1]][1:2]
-  lr = convert.math(lr,lyma=lyma)
+  l =  convert.math(lr[1],lyma=lyma)
+  r =  convert.math(lr[2],lyma=lyma)
 
-  out = mx.is.equal(lr[1],lr[2])
+  out = mx.is.equal(l,r)
   return(out)
 }
 
@@ -239,6 +240,25 @@ lyx.add.subst = function(str,lyma=new.lyma()) {
   lyma  
 }
 
+lyx.matex = function(str,lyma=new.lyma()) {
+  restore.point("lyx.matex")
+  str = sep.lines(str, ";")
+  str = str.replace(str,";","")
+  str = merge.lines(str,";")
+  ma.code = matex.to.ma.code(str,lyma=lyma) 
+  str = sep.lines(ma.code, ";")
+  
+  ma.header = str[-length(str)]
+  ma.header = paste0(merge.lines(ma.header,";"),";")
+  send.to.maxima(ma.header,lyma=lyma)
+  
+  ma.last = ma.mao.code(str[length(str)]);
+  ret = eval.mao.to.ly(ma.last,clear=FALSE)
+  lyma$txt = ret
+  lyma.to.gui(lyma)
+  ret  
+}
+
 #' txt is some Lyx-Latex code copied from view Latex source
 #' 
 #' The code can contain some commands starting with #
@@ -371,10 +391,18 @@ lyx.go = function(txt=lyma$txt,lyma = new.lyma(txt),file=NULL) {
       ma.code = matex.to.ma.code(str) 
       return(ma.code)
     }
+    else if (str.starts.with(com[com.i],"#MATEX")) {
+      lyma.to.gui(lyma)
+      ret = lyx.matex(str,lyma)
+      return(ret)
+    }
     else if (str.starts.with(com[com.i],"#R")) {
       #str = txt[rows]
       lyma.to.gui(lyma)
       return(matex.to.ma.code(str))
+    } 
+    else if (str.starts.with(com[com.i],"#END")) {
+      break
     }	else {
       mywarning(paste("Unknown command", com[com.i], ". Commands must be in CAPITAL letters"))
     }

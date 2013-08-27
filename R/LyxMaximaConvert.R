@@ -65,14 +65,14 @@ maxima.tex.to.lyx = function(txt,change.over=c("def","frac","inv","")) {
       str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","\\frac{_SUB1_}{_SUB2_}",
                                 block.start = "{", block.end = "}")
     } else if (change.over == "inv") {
-      str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","(SUB_1)*(SUB_2)^{-1}",
+      str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","(_SUB1_)*(_SUB2_)^{-1}",
                                   block.start = "{", block.end = "}")      
     
     # Replacement depends on length
     } else if (change.over == "def") {
       str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","\\frac{_SUB1_}{_SUB2_}",
-                                  block.start = "{", block.end = "}", only.replace.smaller.than=100)
-      str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","(SUB_1)*(SUB_2)^{-1}",
+                                  block.start = "{", block.end = "}", only.replace.smaller.than=500)
+      str = str.replace.by.blocks(str,"{_SUB_}\\over{_SUB_}","(_SUB1_)*(_SUB2_)^{-1}",
                                   block.start = "{", block.end = "}")            
     }
   }
@@ -175,7 +175,7 @@ eq.to.leftright.mat = function(str,colnames=NULL) {
   # Remove some math trash
   str = str.replace(str,"$","")  		
   
-  center = str.find(str,"=",first=TRUE,simplify=TRUE)[,1]
+  center = str.locate.first(str,"=")[,1]
   mat = cbind(str.trim(substring(str,1,center-1)),str.trim(substring(str,center+1,nchar(str))))
   if (!is.null(colnames))
     colnames(mat)=colnames
@@ -299,14 +299,14 @@ do.reverse.subst = function(txt,lyma) {
 
 
 # Return
-convert.math = function(str,final.curley=c("round","remove","keep"),lyma=new.lyma(),do.subst=TRUE) {
+convert.math = function(str,final.curley=c("round","remove","keep"),lyma=new.lyma(),make.subst=TRUE) {
   
   restore.point("convert.math")
   res = list()
   # Merge all lines together to one string
   str = str.trim(merge.lines(str))
   
-  if (do.subst) {
+  if (make.subst) {
     str = do.subst(str,lyma)
   }
   
@@ -411,7 +411,6 @@ convert.math = function(str,final.curley=c("round","remove","keep"),lyma=new.lym
   # Replace (f)*(...) with f(...) if f is a function
   if (length(lyma$fun)>0 & !identical(lyma$fun,"")) {
     restore.point("convert.math_fun")
-    #rerestore.point("convert.math_fun")
     
     fun.or = paste("(",str.list.to.regexp.or(lyma$fun),")",sep="")
     pat = paste('\\Q(\\E',fun.or,'\\Q)*((\\E',sep="")
@@ -439,6 +438,7 @@ examples.convert.math =function() {
 
 #' Removes many redundant braces in a string str that contains a maxima mathematical expression
 remove.redundant.maxima.braces = function(str) {
+  restore.point("remove.redundant.maxima.braces")
   var.pat = "([0-9a-zA-Z_]*)"
   for (i in 1:4) {
     str = str.replace(str,paste0("([\\(\\+-\\*/\\^])\\(",var.pat,"\\)([\\)\\+-\\*/\\^$])"),'\\1\\2\\3',fixed=FALSE)
@@ -451,17 +451,20 @@ remove.redundant.maxima.braces = function(str) {
   # Remove some more unneccary braces
   braces = str.blocks.pos(str,"(",")")
   #show.blocks(braces,str)
-  double.brace = (diff(braces$outer[,1]) == 1) & (diff(braces$outer[,2]) == -1)
+  double.brace = c((diff(braces$outer[,1]) == 1) & (diff(braces$outer[,2]) == -1),FALSE)
   remove.brace.pos = as.numeric(braces$outer[double.brace,])
   str = str.replace.at.pos(str,remove.brace.pos,rep("",length(remove.brace.pos)))
   
   return(str)
 }
-
+examples.remove.redundant.maxima.braces = function() {
+  str = "-(((((((alpha)*(eta)-(alpha)))*(q)-(alpha)*(beta)*(eta)+(alpha)-(1)))*(L)+(((((alpha)-(alpha)*(eta)))*(q)-(alpha)+(1)))*(sigma_m)+(alpha)*(beta)*(eta)*(sigma_b)))/(((L)-(sigma_m)))"
+  remove.redundant.maxima.braces(str)
+  
+}
 #' Converts matex code (maxima code mixed with Latex in $ tags) to maxima code
 matex.to.ma.code = function(str,lyma=new.lyma()) {
   restore.point("matex.to.ma.code")
-  #rerestore.point("lyx.to.maxima.code")
   
   str = merge.lines(str,"\n")
   
@@ -477,6 +480,8 @@ matex.to.ma.code = function(str,lyma=new.lyma()) {
   str = str.replace(str,"§","$")
   comment.rows = (str.left(str,3)=="\\#'" | str.left(str,2)=="#'")
   str[comment.rows] = paste("/*",str.remove.ends(str[comment.rows],2,0),"*/")
+  str = sep.lines(str,";")
+  str = str[str!=""]
   str
 }
 

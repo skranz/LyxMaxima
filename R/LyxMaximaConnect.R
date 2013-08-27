@@ -123,15 +123,15 @@ go = start.LyxMaxima = function(..., init=TRUE) {
 }
 
 #' Takes mao.code sends it to maxima and converts the results to Lyx format
-eval.mao.to.ly = function(mao.code, lyma=new.lyma()) {
-  send.to.maxima(mao.code,lyma=lyma)
+eval.mao.to.ly = function(mao.code,lyma=new.lyma(),clear=TRUE) {
+  send.to.maxima(mao.code,lyma=lyma,clear=clear)
   ret = convert.maxima.output()
   txt = ret$txt[ret$math.rows]
   return(txt)  
 }
 
 #' Sends mao code to maxima
-send.to.maxima = function(txt,lyma=new.lyma()) {  
+send.to.maxima = function(txt,lyma=new.lyma(),clear=TRUE) {  
   restore.point("send.to.maxima.and.lyx")
   if (length(lyma$assum)>0) {
     if(nchar(lyma$assum)>0) {
@@ -139,7 +139,7 @@ send.to.maxima = function(txt,lyma=new.lyma()) {
     }
   }
   # Use RMaxima function
-  call.maxima(txt)
+  call.maxima(txt,clear=clear)
 }
 
 # Generates a new lyx file, code not up to date

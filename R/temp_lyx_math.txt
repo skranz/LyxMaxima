@@ -1,0 +1,19 @@
+% Preview source code for paragraph 46
+
+\begin{proof}
+\begin{comment}
+\#MATEX
+
+$\sigma_{g}:\frac{\bar{\sigma}-\beta\sigma_{b}}{1-\beta}$;
+
+$p_{1}:(\beta\eta+(1-\eta)q)L+(1-\eta)(1-q)\bar{\sigma}+\eta(1-\beta)\sigma_{g}-\Delta$;
+
+$p_{2}:L-\Delta$;
+
+$p_{s}:(1-\alpha)p_{2}+\alpha p_{1}$;
+
+solve($p_{s}=\lambda L+(1-\lambda)\bar{\sigma}-\Delta$,$\lambda$);
+\end{comment}
+
+
+\end{proof}
