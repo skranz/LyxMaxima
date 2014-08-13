@@ -195,7 +195,7 @@ lyx.diff = function(txt=lyma$txt,ma.var=lyma$ma.var,lyma=new.lyma(txt)) {
 }
 
 examples.lyx.diff = function() {
-  txt = "x^2"
+lib  txt = "x^2"
   lyx.diff("x^2","x")
 }
 

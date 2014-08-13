@@ -57,7 +57,8 @@ set.LyxMaxima.paths = function(
   LYX.OUTFILE.NAME  = "LyxCASResult",
   MAXIMA.HEADER = paste(LYXCAS.PATH,"maxima_script_header.mac",sep=""),
   LYX.HEADER = paste(LYXCAS.PATH,"maxima_lyx_header.txt",sep=""),
-  LYX.FOOTER = paste(LYXCAS.PATH,"maxima_lyx_footer.txt",sep="")
+  LYX.FOOTER = paste(LYXCAS.PATH,"maxima_lyx_footer.txt",sep=""),
+  ...
 ) {
   copy.into.env(source=nlist(LYXCAS.PATH,LYX.PATH,OUT.PATH,LYX.EXE,LYX.OUTFILE.NAME,MAXIMA.HEADER,LYX.HEADER,LYX.FOOTER),dest=glob)
 }
